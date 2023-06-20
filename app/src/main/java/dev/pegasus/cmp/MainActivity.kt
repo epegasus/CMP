@@ -1,99 +1,91 @@
 package dev.pegasus.cmp
 
-import android.hardware.display.DisplayManager
-import android.os.Build
 import android.os.Bundle
-import android.util.DisplayMetrics
 import android.util.Log
-import android.view.Display
-import android.view.ViewGroup
-import android.view.WindowManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.getSystemService
-import com.google.android.gms.ads.AdListener
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.AdView
-import com.google.android.gms.ads.LoadAdError
-import dev.pegasus.cmp.databinding.ActivityMainBinding
-import dev.pegasus.cmp.interfaces.OnConsentResponse
-import dev.pegasus.cmp.managers.ConsentManager
+import com.google.android.ump.ConsentDebugSettings
+import com.google.android.ump.ConsentForm
+import com.google.android.ump.ConsentInformation
+import com.google.android.ump.ConsentRequestParameters
+import com.google.android.ump.UserMessagingPlatform
 
 class MainActivity : AppCompatActivity() {
 
-    private val binding by lazy { ActivityMainBinding.inflate(layoutInflater) }
-    private val consentManager by lazy { ConsentManager(this) }
+    private lateinit var consentInformation: ConsentInformation
+    private lateinit var consentForm: ConsentForm
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        Log.d("TAG", "onCreate: called")
-        when (BuildConfig.DEBUG) {
-            true -> consentManager.initDebugConsent("4348F5520B1A7098C5EB2B68F959C10B", onConsentResponse)
-            false -> consentManager.initConsent(onConsentResponse)
-        }
+        initDebugConsent()
+        //initConsent()
     }
 
-    private val onConsentResponse = object : OnConsentResponse {
-        override fun onResponse(errorMessage: String?) {
-            errorMessage?.let {
-                Log.e("TAG", "onResponse: Error: $it")
-            }
-            loadAds()
-        }
+    private fun initDebugConsent() {
+        Log.d("TAG", "asd: ")
+        val debugSettings = ConsentDebugSettings.Builder(this)
+            .setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
+            .addTestDeviceHashedId("C60A9BCFA47C43BBBD0578BFEE354822")
+            .build()
 
-        override fun onPolicyRequired(isRequired: Boolean) {
-            Log.d("TAG", "onPolicyRequired: Is-Required: $isRequired")
-            // Show Button in setting screen
-        }
+        val params = ConsentRequestParameters
+            .Builder()
+            .setConsentDebugSettings(debugSettings)
+            .build()
+
+        consentInformation = UserMessagingPlatform.getConsentInformation(this)
+        consentInformation.reset()
+        consentInformation.requestConsentInfoUpdate(this, params, {
+            // The consent information state was updated.
+            // You are now ready to check if a form is available.
+            loadForm()
+            Log.d("TAG", "initDebugConsent: success")
+        }, {
+            // Handle the error.
+            Log.d("TAG", "initDebugConsent: $it")
+            showToast(it)
+        })
     }
 
-    private fun loadAds() {
-        // Load ad if permitted
-        val canLoadAd = consentManager.canRequestAds
-        Log.d("TAG", "loadAds: $canLoadAd")
+    private fun initConsent() {
+        val params = ConsentRequestParameters.Builder().setTagForUnderAgeOfConsent(false).build()
 
-        if (!canLoadAd) return
-
-        val adRequest = AdRequest.Builder().build()
-        val adView = AdView(this)
-        adView.adUnitId = "ca-app-pub-3940256099942544/2014213617"
-        adView.setAdSize(getAdSize(binding.frameLayout))
-        adView.adListener = object : AdListener() {
-            override fun onAdFailedToLoad(p0: LoadAdError) {
-                super.onAdFailedToLoad(p0)
-                Log.d("TAG", "onAdFailedToLoad: $p0")
+        consentInformation = UserMessagingPlatform.getConsentInformation(this)
+        consentInformation.requestConsentInfoUpdate(this, params, {
+            // The consent information state was updated.
+            // You are now ready to check if a form is available.
+            if (consentInformation.isConsentFormAvailable) {
+                loadForm()
             }
-
-            override fun onAdLoaded() {
-                super.onAdLoaded()
-                Log.d("TAG", "onAdLoaded: called")
-            }
-        }
-        adView.loadAd(adRequest)
+        }, {
+            // Handle the error.
+            Log.d("TAG", "initDebugConsent: $it")
+            showToast(it)
+        })
     }
 
-    @Suppress("DEPRECATION")
-    private fun getAdSize(viewGroup: ViewGroup): AdSize {
-        var adWidthPixels: Float = viewGroup.width.toFloat()
-        val density = resources.displayMetrics.density
-
-        if (adWidthPixels == 0f) {
-            adWidthPixels = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val windowManager = getSystemService<WindowManager>()
-                val bounds = windowManager?.currentWindowMetrics?.bounds
-                bounds?.width()?.toFloat() ?: 380f
-            } else {
-                val display: Display? = getSystemService<DisplayManager>()?.getDisplay(Display.DEFAULT_DISPLAY)
-                val outMetrics = DisplayMetrics()
-                display?.getMetrics(outMetrics)
-                outMetrics.widthPixels.toFloat()
+    private fun loadForm() {
+        // Loads a consent form. Must be called on the main thread.
+        UserMessagingPlatform.loadConsentForm(this, {
+            this.consentForm = it
+            if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.REQUIRED) {
+                consentForm.show(this) {
+                    if (consentInformation.consentStatus == ConsentInformation.ConsentStatus.OBTAINED) {
+                        // App can start requesting ads.
+                        showToast("Obtained, now we can fetch ads")
+                        return@show
+                    }
+                    showToast("Trying again")
+                    // Handle dismissal by reloading form.
+                    loadForm()
+                }
             }
-        }
-        val adWidth = (adWidthPixels / density).toInt()
-        return AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this, adWidth)
+        }, {
+            // Handle the error.
+            showToast(it)
+        })
     }
 
     private fun showToast(message: Any) {

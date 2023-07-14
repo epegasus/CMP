@@ -22,11 +22,11 @@ class ConsentManager(private val activity: Activity) {
     private var consentForm: ConsentForm? = null
     private var callback: ((errorMessage: String?) -> Unit)? = null
 
-    fun initDebugConsent(callback: (errorMessage: String?) -> Unit) {
+    fun initDebugConsent(deviceId: String, callback: (errorMessage: String?) -> Unit) {
         this.callback = callback
         val debugSettings = ConsentDebugSettings.Builder(activity)
             .setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
-            .addTestDeviceHashedId("7ECB24A02579DF622CC359AF4968D9CC")
+            .addTestDeviceHashedId(deviceId)
             .build()
 
         val params = ConsentRequestParameters

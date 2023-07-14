@@ -16,7 +16,7 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("TAG", "onCreate: called")
         when (BuildConfig.DEBUG) {
-            true -> consentManager.initDebugConsent(callback)
+            true -> consentManager.initDebugConsent("DDB1E6F0E65290BE5D2AA454D6414C60", callback)
             false -> consentManager.initConsent(callback)
         }
     }

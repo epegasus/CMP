@@ -8,7 +8,6 @@ import android.util.Log
 import android.view.Display
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.getSystemService
 import com.google.android.gms.ads.AdListener
@@ -94,9 +93,5 @@ class MainActivity : AppCompatActivity() {
         }
         val adWidth = (adWidthPixels / density).toInt()
         return AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(this, adWidth)
-    }
-
-    private fun showToast(message: Any) {
-        Toast.makeText(this, message.toString(), Toast.LENGTH_SHORT).show()
     }
 }

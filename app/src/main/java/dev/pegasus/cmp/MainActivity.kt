@@ -30,8 +30,8 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("TAG", "onCreate: called")
         when (BuildConfig.DEBUG) {
-            true -> consentManager.initDebugConsent("4348F5520B1A7098C5EB2B68F959C10B", onConsentResponse)
-            false -> consentManager.initConsent(onConsentResponse)
+            true -> consentManager.initDebugConsent(onConsentResponse = onConsentResponse)
+            false -> consentManager.initConsent(onConsentResponse = onConsentResponse)
         }
     }
 

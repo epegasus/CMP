@@ -1,6 +1,8 @@
 package dev.pegasus.cmp.managers
 
+import android.annotation.SuppressLint
 import android.app.Activity
+import android.provider.Settings
 import android.util.Log
 import com.google.android.ump.ConsentDebugSettings
 import com.google.android.ump.ConsentInformation
@@ -10,6 +12,8 @@ import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.FormError
 import com.google.android.ump.UserMessagingPlatform
 import dev.pegasus.cmp.interfaces.OnConsentResponse
+import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
 
 /**
  * @Author: SOHAIB AHMED
@@ -26,7 +30,7 @@ class ConsentManager(private val activity: Activity) {
 
     val canRequestAds: Boolean get() = consentInformation?.canRequestAds() ?: false
 
-    fun initDebugConsent(deviceId: String, onConsentResponse: OnConsentResponse) {
+    fun initDebugConsent(deviceId: String = getDeviceId(), onConsentResponse: OnConsentResponse) {
         this.onConsentResponse = onConsentResponse
         val debugSettings = ConsentDebugSettings.Builder(activity)
             .setDebugGeography(ConsentDebugSettings.DebugGeography.DEBUG_GEOGRAPHY_EEA)
@@ -97,6 +101,29 @@ class ConsentManager(private val activity: Activity) {
             } ?: kotlin.run {
                 Log.d("ConsentManager", "launchPrivacyForm, Result: Shown")
             }
+        }
+    }
+
+    /* ------------------------------------------------- Helpers ------------------------------------------------- */
+
+    /**
+     *  Note: Use this function only for debugging purpose, as it's not recommended
+     */
+    @SuppressLint("HardwareIds")
+    private fun getDeviceId(): String {
+        try {
+            val androidId = Settings.Secure.getString(activity.contentResolver, Settings.Secure.ANDROID_ID)
+            val digest = MessageDigest.getInstance("MD5")
+            digest.update(androidId.toByteArray())
+            val messageDigest = digest.digest()
+            val hexString = StringBuffer()
+            for (i in messageDigest.indices) hexString.append(
+                java.lang.String.format("%02X", 0xFF and messageDigest[i].toInt())
+            )
+            return hexString.toString().uppercase()
+        } catch (e: NoSuchAlgorithmException) {
+            e.printStackTrace()
+            return ""
         }
     }
 }

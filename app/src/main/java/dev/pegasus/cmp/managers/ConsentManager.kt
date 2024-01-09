@@ -4,8 +4,10 @@ import android.app.Activity
 import android.util.Log
 import com.google.android.ump.ConsentDebugSettings
 import com.google.android.ump.ConsentInformation
+import com.google.android.ump.ConsentInformation.ConsentStatus
 import com.google.android.ump.ConsentInformation.PrivacyOptionsRequirementStatus
 import com.google.android.ump.ConsentRequestParameters
+import com.google.android.ump.FormError
 import com.google.android.ump.UserMessagingPlatform
 import dev.pegasus.cmp.interfaces.OnConsentResponse
 
@@ -57,10 +59,11 @@ class ConsentManager(private val activity: Activity) {
 
         consentInformation = UserMessagingPlatform.getConsentInformation(activity).also {
             it.requestConsentInfoUpdate(activity, params, {
-                if (it.isConsentFormAvailable) {
-                    Log.d("ConsentManager", "initConsent: Available")
+                if (it.isConsentFormAvailable && it.consentStatus == ConsentStatus.REQUIRED) {
+                    Log.d("ConsentManager", "initConsent: Available & Required")
                     loadForm()
                 } else {
+                    Log.d("ConsentManager", "initConsent: Neither Available nor Required")
                     onConsentResponse.onResponse()
                 }
             }, { error ->
@@ -85,5 +88,15 @@ class ConsentManager(private val activity: Activity) {
     private fun checkForPrivacyOptions() {
         val isRequired = consentInformation?.privacyOptionsRequirementStatus == PrivacyOptionsRequirementStatus.REQUIRED
         onConsentResponse?.onPolicyRequired(isRequired)
+    }
+
+    fun launchPrivacyForm(callback: (formError: FormError?) -> Unit) {
+        UserMessagingPlatform.showPrivacyOptionsForm(activity) { formError ->
+            formError?.let {
+                Log.e("ConsentManager", "launchPrivacyForm, Error: ${formError.message}")
+            } ?: kotlin.run {
+                Log.d("ConsentManager", "launchPrivacyForm, Result: Shown")
+            }
+        }
     }
 }

@@ -31,3 +31,4 @@ Google Consent Management Platform
 ## Sample Video
 
 
+https://github.com/epegasus/CMP/assets/100923337/de02c989-a53e-42a0-af52-c73b6f560f5b

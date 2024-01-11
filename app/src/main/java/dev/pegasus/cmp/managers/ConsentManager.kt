@@ -5,7 +5,6 @@ import android.app.Activity
 import android.provider.Settings
 import android.util.Log
 import com.google.android.ump.ConsentDebugSettings
-import com.google.android.ump.ConsentInformation
 import com.google.android.ump.ConsentInformation.ConsentStatus
 import com.google.android.ump.ConsentInformation.PrivacyOptionsRequirementStatus
 import com.google.android.ump.ConsentRequestParameters
@@ -25,10 +24,18 @@ import java.security.NoSuchAlgorithmException
 
 class ConsentManager(private val activity: Activity) {
 
-    private var consentInformation: ConsentInformation? = null
+    private val consentInformation by lazy { UserMessagingPlatform.getConsentInformation(activity) }
     private var onConsentResponse: OnConsentResponse? = null
 
-    val canRequestAds: Boolean get() = consentInformation?.canRequestAds() ?: false
+    val canRequestAds: Boolean get() = consentInformation.canRequestAds()
+
+    /**
+     * @param deviceId: You can provide device id via parameter,
+     *          if you want or it will get from the following function, if no id has been provided.
+     *
+     * @param onConsentResponse: 'onResponse' used to call ads, it will be called in either success or error case
+     *                          'onPolicyRequired' will indicate whether to show privacy button or not
+     */
 
     fun initDebugConsent(deviceId: String = getDeviceId(), onConsentResponse: OnConsentResponse) {
         this.onConsentResponse = onConsentResponse
@@ -42,39 +49,35 @@ class ConsentManager(private val activity: Activity) {
             .setConsentDebugSettings(debugSettings)
             .build()
 
-        consentInformation = UserMessagingPlatform.getConsentInformation(activity).also {
-            it.reset()
-            it.requestConsentInfoUpdate(activity, params, {
-                // The consent information state was updated.
-                // You are now ready to check if a form is available.
-                Log.d("ConsentManager", "initDebugConsent: Available")
-                loadForm()
-            }, { error ->
-                // Handle the error.
-                Log.e("ConsentManager", "initDebugConsent: $error")
-                onConsentResponse.onResponse(error.message)
-            })
-        }
+        // Resetting to show everytime in debug mode for testing
+        consentInformation.reset()
+        requestConsent(params)
     }
 
-    fun initConsent(onConsentResponse: OnConsentResponse) {
+    fun initReleaseConsent(onConsentResponse: OnConsentResponse) {
         this.onConsentResponse = onConsentResponse
-        val params = ConsentRequestParameters.Builder().setTagForUnderAgeOfConsent(false).build()
+        val params = ConsentRequestParameters.Builder()
+            .setTagForUnderAgeOfConsent(false)
+            .build()
 
-        consentInformation = UserMessagingPlatform.getConsentInformation(activity).also {
-            it.requestConsentInfoUpdate(activity, params, {
-                if (it.isConsentFormAvailable && it.consentStatus == ConsentStatus.REQUIRED) {
-                    Log.d("ConsentManager", "initConsent: Available & Required")
-                    loadForm()
-                } else {
-                    Log.d("ConsentManager", "initConsent: Neither Available nor Required")
-                    onConsentResponse.onResponse()
-                }
-            }, { error ->
-                Log.e("ConsentManager", "initConsent: $error")
-                onConsentResponse.onResponse(error.message)
-            })
-        }
+        requestConsent(params)
+    }
+
+    private fun requestConsent(params: ConsentRequestParameters) {
+        consentInformation.requestConsentInfoUpdate(activity, params, {
+            // The consent information state was updated.
+            if (consentInformation.isConsentFormAvailable && consentInformation.consentStatus == ConsentStatus.REQUIRED) {
+                Log.i("ConsentManager", "initConsent: Available & Required")
+                loadForm()
+            } else {
+                Log.i("ConsentManager", "initConsent: Neither Available nor Required")
+                onConsentResponse?.onResponse()
+            }
+        }, { error ->
+            // Handle the error.
+            Log.e("ConsentManager", "requestConsent: $error")
+            onConsentResponse?.onResponse(error.message)
+        })
     }
 
     private fun loadForm() {
@@ -111,7 +114,7 @@ class ConsentManager(private val activity: Activity) {
      */
     @SuppressLint("HardwareIds")
     private fun getDeviceId(): String {
-        try {
+        return try {
             val androidId = Settings.Secure.getString(activity.contentResolver, Settings.Secure.ANDROID_ID)
             val digest = MessageDigest.getInstance("MD5")
             digest.update(androidId.toByteArray())
@@ -120,10 +123,10 @@ class ConsentManager(private val activity: Activity) {
             for (i in messageDigest.indices) hexString.append(
                 java.lang.String.format("%02X", 0xFF and messageDigest[i].toInt())
             )
-            return hexString.toString().uppercase()
+            hexString.toString().uppercase()
         } catch (e: NoSuchAlgorithmException) {
             e.printStackTrace()
-            return ""
+            ""
         }
     }
 }

@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">CMP</string>
+    <string name="welcome_note">Welcome to ePegasus Platform</string>
+    <string name="status">Status: %s</string>
+    <string name="privacy_message">Button will be enabled, if CMP allows user to show privacy button.</string>
+    <string name="show_privacy">Show Privacy</string>
 </resources>
